@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<title>ফোন মাইক</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+  body{font-family:'Hind Siliguri',Arial,sans-serif;background:#0f1115;color:#eee;text-align:center;padding:30px 15px;}
+  h1{color:#4dd0e1;font-size:22px;}
+  input{font-size:24px;text-align:center;letter-spacing:6px;padding:10px;width:160px;border-radius:8px;border:none;}
+  button{background:#4dd0e1;color:#000;border:none;padding:16px 26px;font-size:18px;border-radius:10px;cursor:pointer;margin:15px 6px;font-weight:bold;display:block;width:90%;max-width:300px;margin:15px auto;}
+  #muteBtn{background:#ffb74d;}
+  .status{margin-top:15px;font-size:16px;color:#9e9e9e;}
+  .warn{color:#ff8a65;font-size:13px;margin-top:20px;}
+</style>
+</head>
+<body>
+<h1>🎤 ফোনকে মাইক বানান</h1>
+<p>PC পেজে দেখানো ৪-সংখ্যার কোডটি লিখুন:</p>
+<input id="codeInput" maxlength="4" inputmode="numeric" placeholder="0000">
+<button id="connectBtn">সংযুক্ত করুন</button>
+<button id="muteBtn" style="display:none">🔇 মিউট করুন</button>
+<div class="status" id="status">কোড লিখে সংযুক্ত করুন</div>
+<p class="warn">⚠️ মোবাইল ব্রাউজারে মাইক অ্যাক্সেসের জন্য এই পেজটি অবশ্যই <b>https</b> লিংক থেকে খুলতে হবে (যেমন Netlify/Vercel-এ হোস্ট করা)। সরাসরি ফাইল হিসেবে খুললে মাইক কাজ নাও করতে পারে।</p>
+
+<script>
+let peer, localStream, call, muted = false;
+
+const connectBtn = document.getElementById('connectBtn');
+const muteBtn = document.getElementById('muteBtn');
+const statusEl = document.getElementById('status');
+const codeInput = document.getElementById('codeInput');
+
+connectBtn.onclick = async () => {
+  const targetId = codeInput.value.trim();
+  if (targetId.length !== 4) {
+    statusEl.textContent = 'সঠিক ৪-সংখ্যার কোড দিন';
+    return;
+  }
+  try {
+    statusEl.textContent = 'মাইক পারমিশন চাওয়া হচ্ছে...';
+    localStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true }
+    });
+
+    peer = new Peer();
+    peer.on('open', () => {
+      statusEl.textContent = 'PC-তে সংযুক্ত হচ্ছে...';
+      call = peer.call(targetId, localStream);
+      call.on('stream', () => {}); // আমরা কিছু ফেরত শুনছি না
+      statusEl.textContent = '✅ সংযুক্ত! এখন কথা বলুন — PC-তে রেকর্ড হবে।';
+      connectBtn.style.display = 'none';
+      codeInput.style.display = 'none';
+      muteBtn.style.display = 'block';
+    });
+    peer.on('error', (err) => {
+      statusEl.textContent = 'সংযোগ ব্যর্থ: ' + err.type + ' — কোড ঠিক আছে কিনা দেখুন';
+    });
+  } catch (err) {
+    statusEl.textContent = 'এরর: ' + err.message;
+  }
+};
+
+muteBtn.onclick = () => {
+  muted = !muted;
+  localStream.getAudioTracks()[0].enabled = !muted;
+  muteBtn.textContent = muted ? '🎤 আনমিউট করুন' : '🔇 মিউট করুন';
+};
+
+// স্ক্রিন লক হয়ে গেলে সংযোগ বিচ্ছিন্ন হতে পারে, তাই ওয়েক লক চেষ্টা করা হচ্ছে
+if ('wakeLock' in navigator) {
+  navigator.wakeLock.request('screen').catch(()=>{});
+}
+</script>
+</body>
+</html>
